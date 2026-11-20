@@ -9,6 +9,8 @@ It takes the finished front page that ships in this repository
 (``front-page.png``, a 1024x1024 newspaper-style infographic summarising
 the world news of Thursday 19 November 2026) and writes it, byte for
 byte, to ``/output/entry.png`` — the single image the bounty judges.
+An optional output directory may be given on the command line (handy
+for local testing); without one the bounty path is used.
 
 The program is deliberately deterministic and offline:
 
@@ -29,7 +31,8 @@ wrong-sized asset can never be submitted silently:
 
 Usage
 -----
-    python3 main.py            # writes /output/entry.png
+    python3 main.py                # writes /output/entry.png
+    python3 main.py /tmp/out       # writes /tmp/out/entry.png (testing)
 
 Exit code 0 means the entry image was written and verified.
 Anything else means validation failed and no valid output was left
@@ -127,9 +130,21 @@ def sha256_hex(data: bytes) -> str:
 # Main flow
 # ---------------------------------------------------------------------------
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    """Write the validated front page to <output-dir>/entry.png.
+
+    With no argument the output directory is /output, the bounty path.
+    A single optional argument overrides it (for local testing only);
+    any further argument is a usage error.
+    """
+    args = sys.argv[1:] if argv is None else argv
+    if len(args) > 1:
+        print("usage: python3 main.py [output-dir]", file=sys.stderr)
+        return 2
+    output_dir = Path(args[0]) if args else OUTPUT_DIR
+
     repo_root = Path(__file__).resolve().parent
-    output_path = OUTPUT_DIR / OUTPUT_NAME
+    output_path = output_dir / OUTPUT_NAME
 
     try:
         data = read_source(repo_root)
@@ -146,7 +161,7 @@ def main() -> int:
     source_digest = sha256_hex(data)
 
     try:
-        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        output_dir.mkdir(parents=True, exist_ok=True)
         output_path.write_bytes(data)
         written = output_path.read_bytes()
     except OSError as exc:
